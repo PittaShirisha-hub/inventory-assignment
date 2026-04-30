@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h2>Inventory Search</h2>
+
+<input type="text" id="search" placeholder="Search product">
+<select id="category">
+  <option value="">All</option>
+  <option value="Electronics">Electronics</option>
+  <option value="Clothing">Clothing</option>
+</select>
+
+<input type="number" id="minPrice" placeholder="Min Price">
+<input type="number" id="maxPrice" placeholder="Max Price">
+
+<button onclick="search()">Search</button>
+
+<div id="results"></div>
+
+<script>
+async function search() {
+  const q = document.getElementById("search").value;
+  const category = document.getElementById("category").value;
+  const minPrice = document.getElementById("minPrice").value;
+  const maxPrice = document.getElementById("maxPrice").value;
+
+  if (minPrice && maxPrice && Number(minPrice) > Number(maxPrice)) {
+    alert("Invalid price range");
+    return;
+  }
+
+  const res = await fetch(`http://localhost:3000/search?q=${q}&category=${category}&minPrice=${minPrice}&maxPrice=${maxPrice}`);
+  const data = await res.json();
+
+  const resultsDiv = document.getElementById("results");
+
+  if (data.length === 0) {
+    resultsDiv.innerHTML = "<p>No results found</p>";
+    return;
+  }
+
+  resultsDiv.innerHTML = data.map(item =>
+    `<p>${item.name} - ₹${item.price}</p>`
+  ).join("");
+}
+</script>
+
+</body>
+</html>
