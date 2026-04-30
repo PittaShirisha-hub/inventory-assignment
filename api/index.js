@@ -4,21 +4,35 @@ const cors = require("cors");
 
 const app = express();
 
-// Middleware
+// ================== MIDDLEWARE ==================
 app.use(express.json());
 app.use(cors());
 
-// ✅ Root route (fixes "Cannot GET /")
+// ================== ROOT ROUTE ==================
 app.get("/", (req, res) => {
   res.send("Inventory API is running 🚀");
 });
+
+// ================== DATABASE ==================
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
+.then(() => console.log("✅ MongoDB Connected"))
+.catch(err => console.log("❌ DB Error:", err));
 
 // ================== MODELS ==================
 
 // Supplier Schema
 const supplierSchema = new mongoose.Schema({
-  name: String,
-  email: String,
+  name: {
+    type: String,
+    required: true
+  },
+  email: {
+    type: String,
+    required: true
+  }
 });
 
 const Supplier = mongoose.model("Supplier", supplierSchema);
@@ -28,26 +42,34 @@ const inventorySchema = new mongoose.Schema({
   supplier_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Supplier",
+    required: true
   },
-  quantity: Number,
-  price: Number,
+  quantity: {
+    type: Number,
+    required: true
+  },
+  price: {
+    type: Number,
+    required: true
+  }
 });
 
 const Inventory = mongoose.model("Inventory", inventorySchema);
-
-// ================== DB CONNECT ==================
-
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("DB Connected"))
-  .catch(err => console.log(err));
 
 // ================== API 1 ==================
 // ➤ Add Supplier
 app.post("/supplier", async (req, res) => {
   try {
-    const supplier = new Supplier(req.body);
+    const { name, email } = req.body;
+
+    if (!name || !email) {
+      return res.status(400).json({ error: "Name and Email required" });
+    }
+
+    const supplier = new Supplier({ name, email });
     await supplier.save();
-    res.json(supplier);
+
+    res.status(201).json(supplier);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -59,19 +81,24 @@ app.post("/inventory", async (req, res) => {
   try {
     const { supplier_id, quantity, price } = req.body;
 
-    const supplier = await Supplier.findById(supplier_id);
-    if (!supplier) {
-      return res.status(400).json({ error: "Supplier not found" });
+    // Validation
+    if (!supplier_id || quantity == null || price == null) {
+      return res.status(400).json({ error: "All fields required" });
     }
 
     if (quantity < 0 || price <= 0) {
       return res.status(400).json({ error: "Invalid values" });
     }
 
-    const item = new Inventory(req.body);
+    const supplier = await Supplier.findById(supplier_id);
+    if (!supplier) {
+      return res.status(400).json({ error: "Supplier not found" });
+    }
+
+    const item = new Inventory({ supplier_id, quantity, price });
     await item.save();
 
-    res.json(item);
+    res.status(201).json(item);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -101,7 +128,9 @@ app.get("/inventory-summary", async (req, res) => {
           }
         }
       },
-      { $sort: { totalValue: -1 } }
+      {
+        $sort: { totalValue: -1 }
+      }
     ]);
 
     res.json(result);
@@ -110,5 +139,5 @@ app.get("/inventory-summary", async (req, res) => {
   }
 });
 
-// ✅ Export for Vercel (IMPORTANT)
+// ================== EXPORT ==================
 module.exports = app;
